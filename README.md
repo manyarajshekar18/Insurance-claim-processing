@@ -1,117 +1,217 @@
 # 🛡️ AI-Powered Insurance Claim Processing System
 
-## 📌 Introduction
+An enterprise-style **AI-powered Insurance Claim Processing System** built using **Java 21, Spring Boot, Spring Security, JWT, MySQL, and AI/LLM technologies**.
 
-The **AI-Powered Insurance Claim Processing System** is a full-stack application designed to simplify and automate the insurance claim processing workflow.
+The system is designed to digitize and automate the insurance claim lifecycle — starting from customer authentication and claim submission, continuing through document processing and AI-based analysis, and finally ending with insurance officer review and claim decision.
 
-In a traditional insurance environment, processing a claim can involve multiple steps such as collecting customer information, verifying policies, reviewing claim details, checking supporting documents, identifying missing information, and finally making a decision on whether the claim should be approved or rejected.
+The main objective of this project is to demonstrate how **Java backend development, REST APIs, database management, security, artificial intelligence, document processing, and modern frontend technologies** can be combined to build a realistic insurance technology platform.
 
-These activities can require significant manual effort, especially when insurance officers have to review large numbers of documents.
+---
 
-This project introduces a centralized digital platform where customers can submit claims and supporting documents, while insurance officers can review the claims through a structured workflow.
+# 📌 Table of Contents
 
-An **AI-assisted processing layer** is included to help analyze submitted documents and claim information. The AI component is intended to assist insurance officers by extracting useful information, summarizing documents, identifying missing information, and highlighting possible inconsistencies.
+- [Project Overview](#-project-overview)
+- [Problem Statement](#-problem-statement)
+- [Project Objectives](#-project-objectives)
+- [Proposed Solution](#-proposed-solution)
+- [Complete System Workflow](#-complete-system-workflow)
+- [User Roles](#-user-roles)
+- [Core Features](#-core-features)
+- [AI Capabilities](#-ai-capabilities)
+- [System Architecture](#-system-architecture)
+- [Backend Architecture](#-backend-architecture)
+- [Technology Stack](#-technology-stack)
+- [Database Design](#-database-design)
+- [Claim Lifecycle](#-claim-lifecycle)
+- [Authentication and Security](#-authentication-and-security)
+- [REST API Architecture](#-rest-api-architecture)
+- [Project Structure](#-project-structure)
+- [Development Status](#-development-status)
+- [5-Day Development Roadmap](#-5-day-development-roadmap)
+- [Testing Strategy](#-testing-strategy)
+- [Docker and Deployment](#-docker-and-deployment)
+- [Future Enhancements](#-future-enhancements)
+- [Why This Project](#-why-this-project)
+- [Project Vision](#-project-vision)
 
-The AI does **not make the final insurance decision**. The final decision remains with the authorized insurance officer.
+---
+
+# 🚀 Project Overview
+
+Insurance claim processing is traditionally dependent on multiple manual activities such as:
+
+- Customer information verification
+- Policy verification
+- Claim submission
+- Document collection
+- Document verification
+- Claim classification
+- Claim assessment
+- Communication between customers and officers
+- Final claim approval or rejection
+
+These processes can become time-consuming when large numbers of claims are handled simultaneously.
+
+This project proposes a centralized digital platform where customers can submit claims and supporting documents through an online system while AI assists insurance officers by analyzing the submitted information.
+
+The system combines:
+
+**Java + Spring Boot + MySQL + Spring Security + JWT + AI + OCR + React/Next.js + Docker**
+
+to create a complete insurance claim processing workflow.
 
 ---
 
 # 🎯 Problem Statement
 
-Insurance claim processing can become complex when claims involve multiple documents and verification steps.
+Insurance companies receive claims containing different types of information and supporting documents such as:
 
-A typical claim may contain:
-
-- Policy information
-- Customer information
-- Claim description
-- Hospital bills
-- Medical reports
+- Policy documents
+- Medical documents
+- Bills
+- Receipts
 - Identity documents
-- Discharge summaries
-- Other supporting documents
+- Accident reports
+- Repair estimates
+- Other supporting evidence
 
-Manually reviewing all these documents can make the process time-consuming and difficult to track.
+Manually processing these documents can require significant human effort.
 
-The objective of this project is to develop a system that provides a structured workflow for:
+The system aims to reduce repetitive work by introducing:
 
-1. Customer authentication
-2. Policy management
-3. Claim submission
-4. Document upload
-5. Document processing
-6. AI-assisted analysis
-7. Officer review
-8. Claim decision
-9. Claim status tracking
+- Digital claim submission
+- Centralized document management
+- Automated document processing
+- AI-assisted claim classification
+- AI-generated claim summaries
+- Missing-document identification
+- Inconsistency detection
+- Officer-assisted decision making
+
+The AI system is designed as an **assistance layer** for insurance officers rather than automatically replacing the final human decision.
+
+---
+
+# 🎯 Project Objectives
+
+The major objectives of the system are:
+
+1. Build a secure insurance claim management platform.
+2. Implement customer registration and authentication.
+3. Implement JWT-based authentication.
+4. Store passwords securely using BCrypt.
+5. Manage insurance policies.
+6. Allow customers to create insurance claims.
+7. Allow customers to upload supporting documents.
+8. Process uploaded documents.
+9. Extract useful information from documents.
+10. Use AI/LLM technologies to analyze claim information.
+11. Identify missing supporting documents.
+12. Generate claim summaries.
+13. Classify claims.
+14. Detect potential inconsistencies.
+15. Provide AI-generated assessment information to insurance officers.
+16. Allow officers to review claims.
+17. Allow authorized officers to approve, reject, or request additional information.
+18. Provide role-based access control.
+19. Build a modern frontend dashboard.
+20. Containerize the application using Docker.
+21. Create a deployment-ready architecture.
 
 ---
 
 # 💡 Proposed Solution
 
-The proposed system provides separate functionality for different users involved in the insurance workflow.
+The proposed system follows a complete digital workflow.
 
-A customer can:
+A customer first creates an account and logs into the system.
 
-- Create an account
-- Login securely
-- View insurance policies
-- Submit claims
+After authentication, the customer can:
+
+- View policies
+- Submit a claim
+- Provide claim details
 - Upload supporting documents
 - Track claim status
 
-An insurance officer can:
+Once a claim is submitted, the backend processes the claim and its documents.
 
-- View submitted claims
-- Review claim details
-- Review uploaded documents
-- View AI-generated analysis
-- Identify missing information
-- Request additional information
-- Approve claims
-- Reject claims
+The document processing layer extracts useful information from uploaded files.
 
-An administrator can:
+The AI layer then analyzes the available information and generates:
 
-- Manage users
-- Monitor policies
-- Monitor claims
-- View system-level information
-- Monitor overall claim processing activity
+- Claim category
+- Summary
+- Extracted information
+- Missing document suggestions
+- Potential inconsistencies
+- AI assessment information
+
+The result is then presented to an authorized insurance officer.
+
+The officer can review the original claim, uploaded documents, and AI-generated analysis before making the final decision.
 
 ---
 
-# 🏢 System Architecture
-
-The application follows a layered architecture.
+# 🔄 Complete System Workflow
 
 ```text
-                         CLIENT
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │   React / Next.js   │
-                │      Frontend       │
-                └──────────┬──────────┘
-                           │
-                           │ REST APIs
-                           ▼
-                ┌─────────────────────┐
-                │    Spring Boot      │
-                │      Backend        │
-                └──────────┬──────────┘
-                           │
-          ┌────────────────┼────────────────┐
-          │                │                │
-          ▼                ▼                ▼
-   Authentication    Business Logic    AI Processing
-   Spring Security      Services          Services
-   JWT                  Controllers       Document AI
-          │                │                │
-          └────────────────┼────────────────┘
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │       MySQL         │
-                │      Database       │
-                └─────────────────────┘
+                         CUSTOMER
+                            │
+                            ▼
+                    Register / Login
+                            │
+                            ▼
+                   JWT Authentication
+                            │
+                            ▼
+                    Customer Dashboard
+                            │
+             ┌──────────────┼──────────────┐
+             │              │              │
+             ▼              ▼              ▼
+         View Policy    Submit Claim    Track Claim
+                            │
+                            ▼
+                    Upload Documents
+                            │
+                            ▼
+                  Document Validation
+                            │
+                            ▼
+                Document Processing / OCR
+                            │
+                            ▼
+                    Text Extraction
+                            │
+                            ▼
+                       AI Analysis
+                            │
+              ┌─────────────┼─────────────┐
+              │             │             │
+              ▼             ▼             ▼
+         Classification  Summary    Missing Documents
+              │             │             │
+              └─────────────┼─────────────┘
+                            │
+                            ▼
+                  Inconsistency Analysis
+                            │
+                            ▼
+                    AI Assessment
+                            │
+                            ▼
+                    OFFICER DASHBOARD
+                            │
+             ┌──────────────┼──────────────┐
+             │              │              │
+             ▼              ▼              ▼
+          APPROVE         REJECT       MORE INFO
+             │              │              │
+             └──────────────┼──────────────┘
+                            │
+                            ▼
+                     CLAIM STATUS
+                            │
+                            ▼
+                         CUSTOMER
