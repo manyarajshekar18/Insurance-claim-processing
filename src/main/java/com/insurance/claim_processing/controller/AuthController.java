@@ -1,5 +1,7 @@
 package com.insurance.claim_processing.controller;
 
+import com.insurance.claim_processing.dto.LoginRequest;
+import com.insurance.claim_processing.dto.LoginResponse;
 import com.insurance.claim_processing.dto.UserResponse;
 import com.insurance.claim_processing.entity.User;
 import com.insurance.claim_processing.service.UserService;
@@ -30,6 +32,26 @@ public class AuthController {
                 user.getEmail(),
                 user.getRole(),
                 user.getCreatedAt()
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(
+            @RequestBody LoginRequest request) {
+
+        User user = userService.loginUser(
+                request.getEmail(),
+                request.getPassword()
+        );
+
+        String token = userService.generateToken(user);
+
+        LoginResponse response = new LoginResponse(
+                token,
+                user.getEmail(),
+                user.getRole().name()
         );
 
         return ResponseEntity.ok(response);
