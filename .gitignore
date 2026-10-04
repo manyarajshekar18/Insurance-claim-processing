@@ -35,3 +35,6 @@ build/
 error.txt
 
 .env
+
+test-claim.txt
+uploads/
