@@ -18,15 +18,19 @@ public class ClaimDocumentService {
 
     private final ClaimDocumentRepository documentRepository;
     private final ClaimRepository claimRepository;
+    private final OcrService ocrService;
 
     private final Path uploadDirectory =
             Paths.get("uploads/claims");
 
     public ClaimDocumentService(
             ClaimDocumentRepository documentRepository,
-            ClaimRepository claimRepository) {
+            ClaimRepository claimRepository,
+            OcrService ocrService) {
+
         this.documentRepository = documentRepository;
         this.claimRepository = claimRepository;
+        this.ocrService = ocrService;
     }
 
     public ClaimDocument uploadDocument(
@@ -49,10 +53,15 @@ public class ClaimDocumentService {
 
         Files.copy(file.getInputStream(), filePath);
 
+        String extractedText =
+                ocrService.extractText(filePath.toString());
+
         ClaimDocument document = new ClaimDocument();
+
         document.setFileName(file.getOriginalFilename());
         document.setFileType(file.getContentType());
         document.setFilePath(filePath.toString());
+        document.setExtractedText(extractedText);
         document.setClaim(claim);
 
         return documentRepository.save(document);

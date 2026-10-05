@@ -20,6 +20,9 @@ public class ClaimDocument {
     @Column(nullable = false)
     private String filePath;
 
+    @Column(columnDefinition = "TEXT")
+    private String extractedText;
+
     @Column(nullable = false)
     private LocalDateTime uploadedAt;
 
@@ -55,6 +58,14 @@ public class ClaimDocument {
 
     public void setFilePath(String filePath) {
         this.filePath = filePath;
+    }
+
+    public String getExtractedText() {
+        return extractedText;
+    }
+
+    public void setExtractedText(String extractedText) {
+        this.extractedText = extractedText;
     }
 
     public LocalDateTime getUploadedAt() {
