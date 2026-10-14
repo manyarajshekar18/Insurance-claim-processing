@@ -1,17 +1,20 @@
 package com.insurance.claim_processing.filter;
 
-import com.insurance.claim_processing.service.JwtService;
+import com.insurance.claim_processing.entity.User;
 import com.insurance.claim_processing.repository.UserRepository;
+import com.insurance.claim_processing.service.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Collections;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -22,6 +25,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     public JwtAuthenticationFilter(
             JwtService jwtService,
             UserRepository userRepository) {
+
         this.jwtService = jwtService;
         this.userRepository = userRepository;
     }
@@ -47,11 +51,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             userRepository.findByEmail(email).ifPresent(user -> {
 
+                SimpleGrantedAuthority authority =
+                        new SimpleGrantedAuthority(
+                                "ROLE_" + user.getRole().name()
+                        );
+
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
                                 user,
                                 null,
-                                java.util.Collections.emptyList()
+                                Collections.singletonList(authority)
                         );
 
                 SecurityContextHolder

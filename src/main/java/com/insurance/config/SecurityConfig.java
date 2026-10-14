@@ -38,13 +38,23 @@ public class SecurityConfig {
             )
 
             .authorizeHttpRequests(auth -> auth
+
                 .requestMatchers(
-                    "/api/auth/register",
-                    "/api/auth/login",
-                    "/api/claims/*/documents",
-                    "/api/claims/*/analyze",
-                    "/api/claims/*/analysis"
+                    "/api/auth/**"
                 ).permitAll()
+
+                .requestMatchers(
+                    "/api/test/**"
+                ).authenticated()
+
+                .requestMatchers(
+                    "/api/claims/**"
+                ).hasAnyRole("CUSTOMER", "OFFICER", "ADMIN")
+
+                .requestMatchers(
+                    "/api/policies/**"
+                ).hasAnyRole("CUSTOMER", "OFFICER", "ADMIN")
+
                 .anyRequest().authenticated()
             )
 
