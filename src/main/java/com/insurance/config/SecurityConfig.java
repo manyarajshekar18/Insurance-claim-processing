@@ -3,6 +3,7 @@ package com.insurance.claim_processing.config;
 import com.insurance.claim_processing.filter.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -39,23 +40,26 @@ public class SecurityConfig {
 
             .authorizeHttpRequests(auth -> auth
 
-                .requestMatchers(
-                    "/api/auth/**"
-                ).permitAll()
+                .requestMatchers("/api/auth/**")
+                .permitAll()
 
                 .requestMatchers(
-                    "/api/test/**"
-                ).authenticated()
+                    HttpMethod.POST,
+                    "/api/claims/*/review"
+                )
+                .hasRole("OFFICER")
 
-                .requestMatchers(
-                    "/api/claims/**"
-                ).hasAnyRole("CUSTOMER", "OFFICER", "ADMIN")
+                .requestMatchers("/api/test/**")
+                .authenticated()
 
-                .requestMatchers(
-                    "/api/policies/**"
-                ).hasAnyRole("CUSTOMER", "OFFICER", "ADMIN")
+                .requestMatchers("/api/claims/**")
+                .hasAnyRole("CUSTOMER", "OFFICER", "ADMIN")
 
-                .anyRequest().authenticated()
+                .requestMatchers("/api/policies/**")
+                .hasAnyRole("CUSTOMER", "OFFICER", "ADMIN")
+
+                .anyRequest()
+                .authenticated()
             )
 
             .addFilterBefore(
