@@ -40,24 +40,34 @@ public class SecurityConfig {
 
             .authorizeHttpRequests(auth -> auth
 
+                // Authentication endpoints
                 .requestMatchers("/api/auth/**")
                 .permitAll()
 
+                // Admin dashboard - ADMIN only
+                .requestMatchers("/api/admin/**")
+                .hasRole("ADMIN")
+
+                // Officer review - OFFICER only
                 .requestMatchers(
                     HttpMethod.POST,
                     "/api/claims/*/review"
                 )
                 .hasRole("OFFICER")
 
+                // Test endpoint
                 .requestMatchers("/api/test/**")
                 .authenticated()
 
+                // Claims
                 .requestMatchers("/api/claims/**")
                 .hasAnyRole("CUSTOMER", "OFFICER", "ADMIN")
 
+                // Policies
                 .requestMatchers("/api/policies/**")
                 .hasAnyRole("CUSTOMER", "OFFICER", "ADMIN")
 
+                // Everything else requires authentication
                 .anyRequest()
                 .authenticated()
             )

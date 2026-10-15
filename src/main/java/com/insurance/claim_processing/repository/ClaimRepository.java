@@ -1,6 +1,7 @@
 package com.insurance.claim_processing.repository;
 
 import com.insurance.claim_processing.entity.Claim;
+import com.insurance.claim_processing.entity.ClaimStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -11,4 +12,6 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
     Optional<Claim> findByClaimNumber(String claimNumber);
 
     List<Claim> findByPolicyId(Long policyId);
+
+    long countByStatus(ClaimStatus status);
 }
