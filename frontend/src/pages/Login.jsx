@@ -16,6 +16,7 @@ function Login({ onLoginSuccess }) {
             const data = await login(email, password);
 
             localStorage.setItem("token", data.token);
+            localStorage.setItem("userId", data.userId);
             localStorage.setItem("email", data.email);
             localStorage.setItem("role", data.role);
 
@@ -33,6 +34,7 @@ function Login({ onLoginSuccess }) {
                 <div className="col-md-5">
                     <div className="card shadow">
                         <div className="card-body p-4">
+
                             <h2 className="text-center mb-4">
                                 Insurance Claim System
                             </h2>
@@ -40,6 +42,7 @@ function Login({ onLoginSuccess }) {
                             <h4 className="mb-3">Login</h4>
 
                             <form onSubmit={handleLogin}>
+
                                 <div className="mb-3">
                                     <label className="form-label">
                                         Email
@@ -81,6 +84,7 @@ function Login({ onLoginSuccess }) {
                                         ? "Logging in..."
                                         : "Login"}
                                 </button>
+
                             </form>
 
                             {message && (
@@ -88,6 +92,7 @@ function Login({ onLoginSuccess }) {
                                     {message}
                                 </div>
                             )}
+
                         </div>
                     </div>
                 </div>

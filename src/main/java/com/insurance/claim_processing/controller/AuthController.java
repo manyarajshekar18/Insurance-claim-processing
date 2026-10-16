@@ -24,7 +24,11 @@ public class AuthController {
             @RequestParam String email,
             @RequestParam String password) {
 
-        User user = userService.registerUser(name, email, password);
+        User user = userService.registerUser(
+                name,
+                email,
+                password
+        );
 
         UserResponse response = new UserResponse(
                 user.getId(),
@@ -50,6 +54,7 @@ public class AuthController {
 
         LoginResponse response = new LoginResponse(
                 token,
+                user.getId(),
                 user.getEmail(),
                 user.getRole().name()
         );
