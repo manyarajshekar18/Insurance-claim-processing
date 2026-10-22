@@ -35,17 +35,20 @@ public class SecurityConfig {
 
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(
-                List.of("http://localhost:5173")
-        );
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:5173",
+                "http://localhost:5174"
+        ));
 
-        configuration.setAllowedMethods(
-                List.of("GET", "POST", "PUT", "DELETE", "OPTIONS")
-        );
+        configuration.setAllowedMethods(List.of(
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "OPTIONS"
+        ));
 
-        configuration.setAllowedHeaders(
-                List.of("*")
-        );
+        configuration.setAllowedHeaders(List.of("*"));
 
         configuration.setAllowCredentials(true);
 
@@ -62,50 +65,71 @@ public class SecurityConfig {
             HttpSecurity http) throws Exception {
 
         http
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-            .csrf(csrf -> csrf.disable())
+                .csrf(csrf -> csrf.disable())
 
-            .sessionManagement(session ->
-                session.sessionCreationPolicy(
-                    SessionCreationPolicy.STATELESS
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(
+                                SessionCreationPolicy.STATELESS
+                        )
                 )
-            )
 
-            .authorizeHttpRequests(auth -> auth
+                .authorizeHttpRequests(auth -> auth
 
-                .requestMatchers(HttpMethod.OPTIONS, "/**")
-                .permitAll()
+                        // Allow browser CORS preflight requests
+                        .requestMatchers(
+                                HttpMethod.OPTIONS,
+                                "/**"
+                        ).permitAll()
 
-                .requestMatchers("/api/auth/**")
-                .permitAll()
+                        // Authentication
+                        .requestMatchers(
+                                "/api/auth/**"
+                        ).permitAll()
 
-                .requestMatchers("/api/admin/**")
-                .hasRole("ADMIN")
+                        // Admin APIs
+                        .requestMatchers(
+                                "/api/admin/**"
+                        ).hasRole("ADMIN")
 
-                .requestMatchers(
-                    HttpMethod.POST,
-                    "/api/claims/*/review"
+                        // Officer claim review
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/claims/*/review"
+                        ).hasRole("OFFICER")
+
+                        // Authenticated test APIs
+                        .requestMatchers(
+                                "/api/test/**"
+                        ).authenticated()
+
+                        // Claims
+                        .requestMatchers(
+                                "/api/claims/**"
+                        ).hasAnyRole(
+                                "CUSTOMER",
+                                "OFFICER",
+                                "ADMIN"
+                        )
+
+                        // Policies
+                        .requestMatchers(
+                                "/api/policies/**"
+                        ).hasAnyRole(
+                                "CUSTOMER",
+                                "OFFICER",
+                                "ADMIN"
+                        )
+
+                        // Everything else
+                        .anyRequest().authenticated()
                 )
-                .hasRole("OFFICER")
 
-                .requestMatchers("/api/test/**")
-                .authenticated()
-
-                .requestMatchers("/api/claims/**")
-                .hasAnyRole("CUSTOMER", "OFFICER", "ADMIN")
-
-                .requestMatchers("/api/policies/**")
-                .hasAnyRole("CUSTOMER", "OFFICER", "ADMIN")
-
-                .anyRequest()
-                .authenticated()
-            )
-
-            .addFilterBefore(
-                jwtAuthenticationFilter,
-                UsernamePasswordAuthenticationFilter.class
-            );
+                .addFilterBefore(
+                        jwtAuthenticationFilter,
+                        UsernamePasswordAuthenticationFilter.class
+                );
 
         return http.build();
     }
