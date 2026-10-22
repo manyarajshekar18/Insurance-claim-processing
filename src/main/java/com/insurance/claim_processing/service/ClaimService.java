@@ -17,6 +17,7 @@ public class ClaimService {
     public ClaimService(
             ClaimRepository claimRepository,
             PolicyRepository policyRepository) {
+
         this.claimRepository = claimRepository;
         this.policyRepository = policyRepository;
     }
@@ -28,9 +29,11 @@ public class ClaimService {
             Long policyId) {
 
         Policy policy = policyRepository.findById(policyId)
-                .orElseThrow(() -> new RuntimeException("Policy not found"));
+                .orElseThrow(() ->
+                        new RuntimeException("Policy not found"));
 
         Claim claim = new Claim();
+
         claim.setClaimNumber(claimNumber);
         claim.setDescription(description);
         claim.setClaimAmount(claimAmount);
@@ -40,6 +43,14 @@ public class ClaimService {
     }
 
     public List<Claim> getClaimsByPolicy(Long policyId) {
+
         return claimRepository.findByPolicyId(policyId);
+    }
+
+    public Claim getClaimById(Long claimId) {
+
+        return claimRepository.findById(claimId)
+                .orElseThrow(() ->
+                        new RuntimeException("Claim not found"));
     }
 }

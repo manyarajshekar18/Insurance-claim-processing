@@ -37,7 +37,9 @@ public class SecurityConfig {
 
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:5173",
-                "http://localhost:5174"
+                "http://localhost:5174",
+                "http://localhost:5177",
+                "http://localhost:5178"
         ));
 
         configuration.setAllowedMethods(List.of(
@@ -65,71 +67,63 @@ public class SecurityConfig {
             HttpSecurity http) throws Exception {
 
         http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .cors(cors ->
+                cors.configurationSource(corsConfigurationSource())
+            )
+            .csrf(csrf ->
+                csrf.disable()
+            )
+            .sessionManagement(session ->
+                session.sessionCreationPolicy(
+                    SessionCreationPolicy.STATELESS
+                )
+            )
+            .authorizeHttpRequests(auth -> auth
 
-                .csrf(csrf -> csrf.disable())
+                .requestMatchers(
+                    HttpMethod.OPTIONS,
+                    "/**"
+                ).permitAll()
 
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(
-                                SessionCreationPolicy.STATELESS
-                        )
+                .requestMatchers(
+                    "/api/auth/**"
+                ).permitAll()
+
+                .requestMatchers(
+                    "/api/admin/**"
+                ).hasRole("ADMIN")
+
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/claims/*/review"
+                ).hasRole("OFFICER")
+
+                .requestMatchers(
+                    "/api/test/**"
+                ).authenticated()
+
+                .requestMatchers(
+                    "/api/claims/**"
+                ).hasAnyRole(
+                    "CUSTOMER",
+                    "OFFICER",
+                    "ADMIN"
                 )
 
-                .authorizeHttpRequests(auth -> auth
-
-                        // Allow browser CORS preflight requests
-                        .requestMatchers(
-                                HttpMethod.OPTIONS,
-                                "/**"
-                        ).permitAll()
-
-                        // Authentication
-                        .requestMatchers(
-                                "/api/auth/**"
-                        ).permitAll()
-
-                        // Admin APIs
-                        .requestMatchers(
-                                "/api/admin/**"
-                        ).hasRole("ADMIN")
-
-                        // Officer claim review
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/claims/*/review"
-                        ).hasRole("OFFICER")
-
-                        // Authenticated test APIs
-                        .requestMatchers(
-                                "/api/test/**"
-                        ).authenticated()
-
-                        // Claims
-                        .requestMatchers(
-                                "/api/claims/**"
-                        ).hasAnyRole(
-                                "CUSTOMER",
-                                "OFFICER",
-                                "ADMIN"
-                        )
-
-                        // Policies
-                        .requestMatchers(
-                                "/api/policies/**"
-                        ).hasAnyRole(
-                                "CUSTOMER",
-                                "OFFICER",
-                                "ADMIN"
-                        )
-
-                        // Everything else
-                        .anyRequest().authenticated()
+                .requestMatchers(
+                    "/api/policies/**"
+                ).hasAnyRole(
+                    "CUSTOMER",
+                    "OFFICER",
+                    "ADMIN"
                 )
 
-                .addFilterBefore(
-                        jwtAuthenticationFilter,
-                        UsernamePasswordAuthenticationFilter.class
-                );
+                .anyRequest().authenticated()
+            )
+            .addFilterBefore(
+                jwtAuthenticationFilter,
+                UsernamePasswordAuthenticationFilter.class
+            );
 
         return http.build();
     }

@@ -42,4 +42,13 @@ public class ClaimController {
                 claimService.getClaimsByPolicy(policyId)
         );
     }
+
+    @GetMapping("/{claimId}")
+    public ResponseEntity<Claim> getClaimById(
+            @PathVariable Long claimId) {
+
+        return ResponseEntity.ok(
+                claimService.getClaimById(claimId)
+        );
+    }
 }

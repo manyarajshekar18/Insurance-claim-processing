@@ -1,134 +1,221 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+const API_BASE_URL = "http://localhost:8080";
 
 function CustomerDashboard() {
-    const email = localStorage.getItem("email");
-    const token = localStorage.getItem("token");
-    const userId = localStorage.getItem("userId");
+    const [policies, setPolicies] = useState([]);
+    const [claims, setClaims] = useState([]);
+    const [selectedClaim, setSelectedClaim] = useState(null);
+    const [documents, setDocuments] = useState([]);
+    const [selectedFile, setSelectedFile] = useState(null);
 
-    const [policy, setPolicy] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState("");
-
-    const [showClaimForm, setShowClaimForm] = useState(false);
     const [claimNumber, setClaimNumber] = useState("");
     const [description, setDescription] = useState("");
     const [claimAmount, setClaimAmount] = useState("");
-    const [claimLoading, setClaimLoading] = useState(false);
-    const [claimMessage, setClaimMessage] = useState("");
 
-    const [claims, setClaims] = useState([]);
-    const [claimsLoading, setClaimsLoading] = useState(false);
-    const [claimsMessage, setClaimsMessage] = useState("");
+    const [loading, setLoading] = useState(true);
+    const [uploading, setUploading] = useState(false);
+    const [message, setMessage] = useState("");
+    const [error, setError] = useState("");
 
-    const handleViewPolicy = async () => {
-        setLoading(true);
-        setMessage("");
+    const userId = localStorage.getItem("userId");
+    const token = localStorage.getItem("token");
 
+    const authHeaders = {
+        Authorization: `Bearer ${token}`
+    };
+
+    useEffect(() => {
+        loadDashboard();
+    }, []);
+
+    const loadDashboard = async () => {
         try {
-            const response = await fetch(
-                `http://localhost:8080/api/policies/user/${userId}`,
+            setLoading(true);
+            setError("");
+
+            const policyResponse = await fetch(
+                `${API_BASE_URL}/api/policies/user/${userId}`,
                 {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
+                    headers: authHeaders
                 }
             );
 
-            if (!response.ok) {
-                throw new Error("Unable to fetch policy");
+            if (!policyResponse.ok) {
+                throw new Error("Unable to load policies");
             }
 
-            const data = await response.json();
-            setPolicy(data[0] || null);
+            const policyData = await policyResponse.json();
+            setPolicies(policyData);
 
-            if (!data[0]) {
-                setMessage("No active policy found.");
+            let allClaims = [];
+
+            for (const policy of policyData) {
+                const claimResponse = await fetch(
+                    `${API_BASE_URL}/api/claims/policy/${policy.id}`,
+                    {
+                        headers: authHeaders
+                    }
+                );
+
+                if (claimResponse.ok) {
+                    const claimData = await claimResponse.json();
+                    allClaims = [...allClaims, ...claimData];
+                }
             }
-        } catch (error) {
-            setMessage(error.message);
+
+            setClaims(allClaims);
+        } catch (err) {
+            setError(err.message);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleCreateClaim = async (e) => {
-        e.preventDefault();
-
-        if (!policy) {
-            setClaimMessage("Please view your policy before submitting a claim.");
-            return;
-        }
-
-        setClaimLoading(true);
-        setClaimMessage("");
-
+    const openClaimDetails = async (claim) => {
         try {
-            const params = new URLSearchParams({
-                claimNumber,
-                description,
-                claimAmount,
-                policyId: policy.id
-            });
+            setError("");
+            setMessage("");
 
             const response = await fetch(
-                `http://localhost:8080/api/claims?${params.toString()}`,
+                `${API_BASE_URL}/api/claims/${claim.id}`,
                 {
-                    method: "POST",
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
+                    headers: authHeaders
                 }
             );
 
             if (!response.ok) {
-                throw new Error("Unable to submit claim");
+                throw new Error("Unable to load claim details");
             }
 
-            await response.json();
+            const data = await response.json();
+            setSelectedClaim(data);
 
-            setClaimMessage(
-                "Your claim has been submitted successfully."
+            await loadDocuments(data.id);
+        } catch (err) {
+            setError(err.message);
+        }
+    };
+
+    const loadDocuments = async (claimId) => {
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/api/claims/${claimId}/documents`,
+                {
+                    headers: authHeaders
+                }
             );
+
+            if (response.ok) {
+                const data = await response.json();
+                setDocuments(data);
+            } else {
+                setDocuments([]);
+            }
+        } catch {
+            setDocuments([]);
+        }
+    };
+
+    const submitClaim = async (e) => {
+        e.preventDefault();
+
+        if (!policies.length) {
+            setError("No active policy available.");
+            return;
+        }
+
+        try {
+            setError("");
+            setMessage("");
+
+            const params = new URLSearchParams();
+
+            params.append("claimNumber", claimNumber);
+            params.append("description", description);
+            params.append("claimAmount", claimAmount);
+            params.append("policyId", policies[0].id);
+
+            const response = await fetch(
+                `${API_BASE_URL}/api/claims?${params.toString()}`,
+                {
+                    method: "POST",
+                    headers: authHeaders
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error("Claim submission failed");
+            }
 
             setClaimNumber("");
             setDescription("");
             setClaimAmount("");
-        } catch (error) {
-            setClaimMessage(error.message);
-        } finally {
-            setClaimLoading(false);
+
+            setMessage("Your claim has been submitted successfully.");
+
+            await loadDashboard();
+        } catch (err) {
+            setError(err.message);
         }
     };
 
-    const handleTrackClaims = async () => {
-        setClaimsLoading(true);
-        setClaimsMessage("");
-        setClaims([]);
+    const uploadDocument = async () => {
+        if (!selectedFile || !selectedClaim) {
+            setError("Please select a document first.");
+            return;
+        }
 
         try {
-            if (!policy) {
-                throw new Error("Please view your policy first.");
-            }
+            setUploading(true);
+            setError("");
+            setMessage("");
+
+            const formData = new FormData();
+            formData.append("file", selectedFile);
 
             const response = await fetch(
-                `http://localhost:8080/api/claims/policy/${policy.id}`,
+                `${API_BASE_URL}/api/claims/${selectedClaim.id}/documents`,
                 {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
+                    method: "POST",
+                    headers: authHeaders,
+                    body: formData
                 }
             );
 
             if (!response.ok) {
-                throw new Error("Unable to fetch claims");
+                throw new Error("Document upload failed");
             }
 
-            const data = await response.json();
-            setClaims(data);
-        } catch (error) {
-            setClaimsMessage(error.message);
+            setSelectedFile(null);
+            setMessage("Document uploaded successfully.");
+
+            await loadDocuments(selectedClaim.id);
+        } catch (err) {
+            setError(err.message);
         } finally {
-            setClaimsLoading(false);
+            setUploading(false);
+        }
+    };
+
+    const getStatusLabel = (status) => {
+        if (!status) return "SUBMITTED";
+
+        switch (status) {
+            case "SUBMITTED":
+                return "Submitted";
+            case "UNDER_REVIEW":
+                return "Under Review";
+            case "AI_ANALYZED":
+                return "Under Review";
+            case "MORE_INFORMATION_REQUIRED":
+                return "More Information Required";
+            case "APPROVED":
+                return "Approved";
+            case "REJECTED":
+                return "Rejected";
+            default:
+                return status.replaceAll("_", " ");
         }
     };
 
@@ -136,755 +223,647 @@ function CustomerDashboard() {
         switch (status) {
             case "APPROVED":
                 return "status-approved";
-
             case "REJECTED":
                 return "status-rejected";
-
             case "UNDER_REVIEW":
-                return "status-review";
-
             case "AI_ANALYZED":
                 return "status-review";
-
             case "MORE_INFORMATION_REQUIRED":
-                return "status-more";
-
+                return "status-warning";
             default:
                 return "status-submitted";
         }
     };
 
-    const getStatusText = (status) => {
-        switch (status) {
-            case "UNDER_REVIEW":
-                return "Under Review";
-
-            case "AI_ANALYZED":
-                return "Under Review";
-
-            case "MORE_INFORMATION_REQUIRED":
-                return "Information Required";
-
-            case "APPROVED":
-                return "Approved";
-
-            case "REJECTED":
-                return "Rejected";
-
-            case "SUBMITTED":
-                return "Submitted";
-
-            default:
-                return status || "Submitted";
-        }
+    const formatAmount = (amount) => {
+        return `₹${Number(amount || 0).toLocaleString("en-IN")}`;
     };
 
-    const totalClaims = claims.length;
-
-    const approvedClaims = claims.filter(
-        (claim) => claim.status === "APPROVED"
-    ).length;
-
-    const activeClaims = claims.filter(
+    const completedClaims = claims.filter(
         (claim) =>
-            claim.status !== "APPROVED" &&
-            claim.status !== "REJECTED"
+            claim.status === "APPROVED" ||
+            claim.status === "REJECTED"
     ).length;
+
+    const currentPolicy = policies[0];
 
     return (
-        <div className="insurance-dashboard">
+        <div className="customer-dashboard">
 
             {/* HEADER */}
-
-            <header className="main-header">
-
-                <div className="header-container">
-
-                    <div className="company-brand">
-
-                        <div className="brand-mark">
-                            <span></span>
-                            <span></span>
-                        </div>
-
-                        <div>
-                            <h2>SecureLife</h2>
-                            <p>Insurance Services</p>
-                        </div>
-
+            <header className="dashboard-header">
+                <div className="brand">
+                    <div className="brand-mark">S</div>
+                    <div>
+                        <h2>SecureLife</h2>
+                        <span>Insurance Services</span>
                     </div>
-
-                    <nav className="main-navigation">
-                        <a href="#overview">Overview</a>
-                        <a href="#policy">My Policy</a>
-                        <a href="#claims">Claims</a>
-                        <a href="#support">Support</a>
-                    </nav>
-
-                    <div className="header-user">
-
-                        <div className="profile-circle">
-                            {email
-                                ? email.charAt(0).toUpperCase()
-                                : "U"}
-                        </div>
-
-                        <div className="profile-details">
-                            <strong>
-                                {email || "Customer"}
-                            </strong>
-                            <span>Policy Holder</span>
-                        </div>
-
-                        <button
-                            className="logout-button"
-                            onClick={() => {
-                                localStorage.clear();
-                                window.location.reload();
-                            }}
-                        >
-                            Sign out
-                        </button>
-
-                    </div>
-
                 </div>
 
+                <nav className="dashboard-nav">
+                    <a href="#overview">Overview</a>
+                    <a href="#policy">My Policy</a>
+                    <a href="#claims">Claims</a>
+                    <a href="#support">Support</a>
+                </nav>
+
+                <div className="customer-profile">
+                    <div className="profile-circle">
+                        {localStorage
+                            .getItem("email")
+                            ?.charAt(0)
+                            .toUpperCase()}
+                    </div>
+                    <span>
+                        {localStorage.getItem("email")}
+                    </span>
+                </div>
             </header>
 
-            <main>
+            {/* HERO */}
+            <section className="dashboard-hero" id="overview">
+                <div className="hero-content">
+                    <span className="hero-label">
+                        CUSTOMER INSURANCE PORTAL
+                    </span>
 
-                {/* HERO */}
+                    <h1>
+                        Protection that
+                        <br />
+                        works for you.
+                    </h1>
 
-                <section className="hero-section" id="overview">
+                    <p>
+                        Manage your policy, submit claims and
+                        track your insurance requests from one place.
+                    </p>
 
-                    <div className="hero-container">
+                    <a href="#claims" className="hero-button">
+                        Manage Claims
+                    </a>
+                </div>
 
-                        <div className="hero-content">
+                <div className="hero-image">
+                    <img
+                        src="https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=1200&q=85"
+                        alt="Insurance consultation"
+                    />
+                </div>
+            </section>
 
-                            <span className="hero-label">
-                                CUSTOMER PORTAL
-                            </span>
+            <main className="dashboard-content">
 
-                            <h1>
-                                Protection that
-                                <br />
-                                <span>works for you.</span>
-                            </h1>
-
-                            <p>
-                                Manage your insurance policy, submit claims,
-                                and stay updated on your requests from one
-                                secure place.
-                            </p>
-
-                            <div className="hero-actions">
-
-                                <button
-                                    className="primary-button"
-                                    onClick={handleViewPolicy}
-                                    disabled={loading}
-                                >
-                                    {loading
-                                        ? "Loading..."
-                                        : "View My Policy"}
-                                </button>
-
-                                <button
-                                    className="secondary-button"
-                                    onClick={() => {
-                                        setShowClaimForm(true);
-                                        setClaimMessage("");
-                                    }}
-                                >
-                                    Submit a Claim
-                                </button>
-
-                            </div>
-
-                        </div>
-
-                        <div className="hero-image-wrapper">
-                            <div className="hero-image"></div>
-
-                            <div className="hero-image-card">
-
-                                <span className="small-label">
-                                    YOUR PROTECTION
-                                </span>
-
-                                <strong>
-                                    Secure & Reliable
-                                </strong>
-
-                                <span>
-                                    Insurance coverage when you need it.
-                                </span>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                </section>
-
-                {/* ERROR MESSAGE */}
-
+                {/* ALERTS */}
                 {message && (
-                    <div className="message-container">
-                        <div className="alert-box error">
-                            {message}
-                        </div>
+                    <div className="success-message">
+                        {message}
                     </div>
                 )}
 
-                {/* QUICK SUMMARY */}
+                {error && (
+                    <div className="error-message">
+                        {error}
+                    </div>
+                )}
 
-                <section className="dashboard-content">
+                {/* SUMMARY */}
+                <section className="summary-grid">
 
-                    <div className="section-heading">
-
-                        <div>
-                            <span className="section-label">
-                                ACCOUNT OVERVIEW
-                            </span>
-
-                            <h2>Your insurance at a glance</h2>
-
-                            <p>
-                                Important information about your coverage
-                                and claims.
-                            </p>
+                    <div className="summary-card">
+                        <div className="summary-icon orange">
+                            ✓
                         </div>
-
+                        <div>
+                            <span>Policy Status</span>
+                            <strong>
+                                {currentPolicy ? "Active" : "No Policy"}
+                            </strong>
+                        </div>
                     </div>
 
-                    <div className="summary-grid">
-
-                        <div className="summary-card">
-
-                            <div className="summary-icon policy-icon">
-                                P
-                            </div>
-
-                            <div>
-                                <span>Policy Status</span>
-
-                                <strong>
-                                    {policy
-                                        ? policy.status || "Active"
-                                        : "Active"}
-                                </strong>
-                            </div>
-
+                    <div className="summary-card">
+                        <div className="summary-icon blue">
+                            ₹
                         </div>
-
-                        <div className="summary-card">
-
-                            <div className="summary-icon coverage-icon">
-                                ₹
-                            </div>
-
-                            <div>
-                                <span>Coverage</span>
-
-                                <strong>
-                                    {policy
-                                        ? `₹${Number(
-                                            policy.coverageAmount
-                                        ).toLocaleString("en-IN")}`
-                                        : "View policy"}
-                                </strong>
-                            </div>
-
+                        <div>
+                            <span>Coverage</span>
+                            <strong>
+                                {currentPolicy
+                                    ? formatAmount(
+                                          currentPolicy.coverageAmount
+                                      )
+                                    : "₹0"}
+                            </strong>
                         </div>
+                    </div>
 
-                        <div className="summary-card">
-
-                            <div className="summary-icon claim-icon">
-                                C
-                            </div>
-
-                            <div>
-                                <span>Claims</span>
-
-                                <strong>
-                                    {totalClaims}
-                                </strong>
-                            </div>
-
+                    <div className="summary-card">
+                        <div className="summary-icon red">
+                            #
                         </div>
-
-                        <div className="summary-card">
-
-                            <div className="summary-icon approved-icon">
-                                ✓
-                            </div>
-
-                            <div>
-                                <span>Completed</span>
-
-                                <strong>
-                                    {approvedClaims}
-                                </strong>
-                            </div>
-
+                        <div>
+                            <span>Total Claims</span>
+                            <strong>{claims.length}</strong>
                         </div>
+                    </div>
 
+                    <div className="summary-card">
+                        <div className="summary-icon green">
+                            ✓
+                        </div>
+                        <div>
+                            <span>Completed</span>
+                            <strong>{completedClaims}</strong>
+                        </div>
                     </div>
 
                 </section>
 
                 {/* POLICY */}
+                <section className="dashboard-section" id="policy">
 
-                {policy && (
-                    <section
-                        className="dashboard-content"
-                        id="policy"
-                    >
-
-                        <div className="section-heading policy-heading">
-
-                            <div>
-                                <span className="section-label">
-                                    POLICY DETAILS
-                                </span>
-
-                                <h2>My insurance policy</h2>
-
-                                <p>
-                                    Your current policy and coverage
-                                    information.
-                                </p>
-                            </div>
-
-                            <span className="active-policy-badge">
-                                Active Policy
+                    <div className="section-heading">
+                        <div>
+                            <span className="section-label">
+                                YOUR COVERAGE
                             </span>
-
+                            <h2>Policy Details</h2>
                         </div>
+                    </div>
 
+                    {loading ? (
+                        <div className="empty-state">
+                            Loading policy information...
+                        </div>
+                    ) : currentPolicy ? (
                         <div className="policy-card">
 
-                            <div className="policy-card-header">
-
+                            <div className="policy-top">
                                 <div>
-                                    <span>POLICY NUMBER</span>
+                                    <span>Policy Number</span>
                                     <strong>
-                                        {policy.policyNumber}
+                                        {currentPolicy.policyNumber}
                                     </strong>
                                 </div>
 
-                                <div className="policy-status">
-                                    Active
-                                </div>
-
+                                <span className="active-badge">
+                                    ACTIVE
+                                </span>
                             </div>
 
-                            <div className="policy-details">
+                            <div className="policy-details-grid">
 
                                 <div>
                                     <span>Policy Type</span>
                                     <strong>
-                                        {policy.policyType}
+                                        {currentPolicy.policyType}
                                     </strong>
                                 </div>
 
                                 <div>
                                     <span>Coverage Amount</span>
                                     <strong>
-                                        ₹
-                                        {Number(
-                                            policy.coverageAmount
-                                        ).toLocaleString("en-IN")}
+                                        {formatAmount(
+                                            currentPolicy.coverageAmount
+                                        )}
                                     </strong>
                                 </div>
 
                                 <div>
                                     <span>Start Date</span>
                                     <strong>
-                                        {policy.startDate || "—"}
+                                        {currentPolicy.startDate || "-"}
                                     </strong>
                                 </div>
 
                                 <div>
                                     <span>End Date</span>
                                     <strong>
-                                        {policy.endDate || "—"}
+                                        {currentPolicy.endDate || "-"}
                                     </strong>
                                 </div>
 
                             </div>
-
                         </div>
+                    ) : (
+                        <div className="empty-state">
+                            No policy information available.
+                        </div>
+                    )}
+                </section>
 
-                    </section>
-                )}
-
-                {/* CLAIM ACTIONS */}
-
-                <section
-                    className="dashboard-content"
-                    id="claims"
-                >
+                {/* CLAIMS */}
+                <section className="dashboard-section" id="claims">
 
                     <div className="section-heading">
-
                         <div>
                             <span className="section-label">
                                 CLAIM MANAGEMENT
                             </span>
-
-                            <h2>Manage your claims</h2>
-
-                            <p>
-                                Submit a new claim or check the status
-                                of your existing requests.
-                            </p>
+                            <h2>Claims</h2>
                         </div>
-
                     </div>
 
-                    <div className="claim-action-grid">
+                    <div className="claims-layout">
 
-                        <div className="claim-action-card submit-card">
-
-                            <div className="claim-card-content">
-
-                                <span className="card-label">
-                                    NEW CLAIM
-                                </span>
-
-                                <h3>
-                                    Need to make a claim?
-                                </h3>
-
-                                <p>
-                                    Submit your claim details and we will
-                                    process your request.
-                                </p>
-
-                                <button
-                                    className="orange-button"
-                                    onClick={() => {
-                                        setShowClaimForm(
-                                            !showClaimForm
-                                        );
-                                        setClaimMessage("");
-                                    }}
-                                >
-                                    {showClaimForm
-                                        ? "Close Form"
-                                        : "Submit a Claim"}
-                                </button>
-
-                            </div>
-
-                            <div className="claim-card-shape"></div>
-
-                        </div>
-
-                        <div className="claim-action-card track-card">
-
-                            <div className="claim-card-content">
-
-                                <span className="card-label">
-                                    CLAIM STATUS
-                                </span>
-
-                                <h3>
-                                    Track your requests
-                                </h3>
-
-                                <p>
-                                    View your submitted claims and
-                                    current processing status.
-                                </p>
-
-                                <button
-                                    className="dark-button"
-                                    onClick={handleTrackClaims}
-                                    disabled={claimsLoading}
-                                >
-                                    {claimsLoading
-                                        ? "Loading..."
-                                        : "View Claims"}
-                                </button>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                </section>
-
-                {/* CLAIM FORM */}
-
-                {showClaimForm && (
-                    <section className="dashboard-content">
-
+                        {/* SUBMIT CLAIM */}
                         <div className="claim-form-card">
 
-                            <div className="form-header">
+                            <h3>Submit a New Claim</h3>
 
-                                <div>
-                                    <span className="section-label">
-                                        NEW REQUEST
-                                    </span>
+                            <p>
+                                Provide your claim details and submit
+                                your request for processing.
+                            </p>
 
-                                    <h2>
-                                        Submit an insurance claim
-                                    </h2>
+                            <form onSubmit={submitClaim}>
 
-                                    <p>
-                                        Provide the details below to
-                                        submit your claim.
-                                    </p>
+                                <div className="form-group">
+                                    <label>Claim Number</label>
+                                    <input
+                                        type="text"
+                                        value={claimNumber}
+                                        onChange={(e) =>
+                                            setClaimNumber(
+                                                e.target.value
+                                            )
+                                        }
+                                        placeholder="Example: CLM1003"
+                                        required
+                                    />
                                 </div>
 
-                                <button
-                                    className="close-form"
-                                    onClick={() =>
-                                        setShowClaimForm(false)
-                                    }
-                                >
-                                    ×
-                                </button>
-
-                            </div>
-
-                            <form onSubmit={handleCreateClaim}>
-
-                                <div className="form-row">
-
-                                    <div className="form-field">
-
-                                        <label>
-                                            Claim Number
-                                        </label>
-
-                                        <input
-                                            type="text"
-                                            placeholder="Example: CLM1003"
-                                            value={claimNumber}
-                                            onChange={(e) =>
-                                                setClaimNumber(
-                                                    e.target.value
-                                                )
-                                            }
-                                            required
-                                        />
-
-                                    </div>
-
-                                    <div className="form-field">
-
-                                        <label>
-                                            Claim Amount
-                                        </label>
-
-                                        <input
-                                            type="number"
-                                            placeholder="Example: 75000"
-                                            value={claimAmount}
-                                            onChange={(e) =>
-                                                setClaimAmount(
-                                                    e.target.value
-                                                )
-                                            }
-                                            required
-                                        />
-
-                                    </div>
-
+                                <div className="form-group">
+                                    <label>Claim Amount</label>
+                                    <input
+                                        type="number"
+                                        value={claimAmount}
+                                        onChange={(e) =>
+                                            setClaimAmount(
+                                                e.target.value
+                                            )
+                                        }
+                                        placeholder="Enter amount"
+                                        required
+                                    />
                                 </div>
 
-                                <div className="form-field">
-
-                                    <label>
-                                        Claim Description
-                                    </label>
-
+                                <div className="form-group">
+                                    <label>Description</label>
                                     <textarea
-                                        rows="5"
-                                        placeholder="Please describe the incident and provide relevant details..."
                                         value={description}
                                         onChange={(e) =>
                                             setDescription(
                                                 e.target.value
                                             )
                                         }
+                                        placeholder="Describe your claim..."
+                                        rows="4"
                                         required
                                     />
-
-                                </div>
-
-                                <div className="linked-policy">
-
-                                    <div>
-                                        <span>
-                                            Linked Policy
-                                        </span>
-
-                                        <strong>
-                                            {policy
-                                                ? policy.policyNumber
-                                                : "Please view your policy first"}
-                                        </strong>
-                                    </div>
-
-                                    {!policy && (
-                                        <button
-                                            type="button"
-                                            onClick={handleViewPolicy}
-                                        >
-                                            Load Policy
-                                        </button>
-                                    )}
-
                                 </div>
 
                                 <button
                                     type="submit"
-                                    className="submit-form-button"
-                                    disabled={claimLoading}
+                                    className="primary-button"
                                 >
-                                    {claimLoading
-                                        ? "Submitting..."
-                                        : "Submit Claim"}
+                                    Submit Claim
                                 </button>
 
                             </form>
+                        </div>
 
-                            {claimMessage && (
-                                <div
-                                    className={`alert-box ${
-                                        claimMessage.includes(
-                                            "successfully"
-                                        )
-                                            ? "success"
-                                            : "error"
-                                    }`}
-                                >
-                                    {claimMessage}
+                        {/* CLAIM HISTORY */}
+                        <div className="claim-history-card">
+
+                            <div className="claim-history-header">
+                                <div>
+                                    <h3>Claim History</h3>
+                                    <p>
+                                        View and track your submitted claims.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {claims.length === 0 ? (
+                                <div className="empty-state">
+                                    No claims submitted yet.
+                                </div>
+                            ) : (
+                                <div className="claims-table-wrapper">
+
+                                    <table className="claims-table">
+
+                                        <thead>
+                                            <tr>
+                                                <th>Claim</th>
+                                                <th>Description</th>
+                                                <th>Amount</th>
+                                                <th>Status</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+
+                                        <tbody>
+                                            {claims.map((claim) => (
+                                                <tr key={claim.id}>
+
+                                                    <td>
+                                                        <strong>
+                                                            {claim.claimNumber}
+                                                        </strong>
+                                                    </td>
+
+                                                    <td>
+                                                        {claim.description}
+                                                    </td>
+
+                                                    <td>
+                                                        {formatAmount(
+                                                            claim.claimAmount
+                                                        )}
+                                                    </td>
+
+                                                    <td>
+                                                        <span
+                                                            className={`claim-status ${getStatusClass(
+                                                                claim.status
+                                                            )}`}
+                                                        >
+                                                            {getStatusLabel(
+                                                                claim.status
+                                                            )}
+                                                        </span>
+                                                    </td>
+
+                                                    <td>
+                                                        <button
+                                                            className="view-claim-button"
+                                                            onClick={() =>
+                                                                openClaimDetails(
+                                                                    claim
+                                                                )
+                                                            }
+                                                        >
+                                                            View Details
+                                                        </button>
+                                                    </td>
+
+                                                </tr>
+                                            ))}
+                                        </tbody>
+
+                                    </table>
+
                                 </div>
                             )}
 
                         </div>
-
-                    </section>
-                )}
-
-                {/* CLAIM LIST */}
-
-                {claimsMessage && (
-                    <div className="message-container">
-                        <div className="alert-box error">
-                            {claimsMessage}
-                        </div>
                     </div>
-                )}
+                </section>
 
-                {claims.length > 0 && (
-                    <section className="dashboard-content">
+                {/* CLAIM DETAILS */}
+                {selectedClaim && (
+                    <section className="claim-details-section">
 
                         <div className="section-heading">
-
                             <div>
                                 <span className="section-label">
-                                    CLAIM HISTORY
+                                    CLAIM INFORMATION
                                 </span>
 
-                                <h2>Your claims</h2>
-
-                                <p>
-                                    Track the latest updates on your
-                                    submitted claims.
-                                </p>
+                                <h2>
+                                    {selectedClaim.claimNumber}
+                                </h2>
                             </div>
 
-                            <div className="claims-count">
-                                {activeClaims} active
+                            <button
+                                className="close-details-button"
+                                onClick={() => {
+                                    setSelectedClaim(null);
+                                    setDocuments([]);
+                                }}
+                            >
+                                Close
+                            </button>
+                        </div>
+
+                        <div className="claim-details-grid">
+
+                            {/* DETAILS */}
+                            <div className="claim-detail-card">
+
+                                <h3>Claim Details</h3>
+
+                                <div className="detail-row">
+                                    <span>Claim Number</span>
+                                    <strong>
+                                        {selectedClaim.claimNumber}
+                                    </strong>
+                                </div>
+
+                                <div className="detail-row">
+                                    <span>Claim Amount</span>
+                                    <strong>
+                                        {formatAmount(
+                                            selectedClaim.claimAmount
+                                        )}
+                                    </strong>
+                                </div>
+
+                                <div className="detail-row">
+                                    <span>Status</span>
+                                    <span
+                                        className={`claim-status ${getStatusClass(
+                                            selectedClaim.status
+                                        )}`}
+                                    >
+                                        {getStatusLabel(
+                                            selectedClaim.status
+                                        )}
+                                    </span>
+                                </div>
+
+                                <div className="detail-description">
+                                    <span>Description</span>
+                                    <p>
+                                        {selectedClaim.description}
+                                    </p>
+                                </div>
+
+                            </div>
+
+                            {/* TIMELINE */}
+                            <div className="claim-detail-card">
+
+                                <h3>Claim Progress</h3>
+
+                                <div className="claim-timeline">
+
+                                    <div className="timeline-item completed">
+                                        <div className="timeline-dot">
+                                            ✓
+                                        </div>
+
+                                        <div>
+                                            <strong>
+                                                Claim Submitted
+                                            </strong>
+                                            <span>
+                                                Your claim was received.
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        className={`timeline-item ${
+                                            [
+                                                "UNDER_REVIEW",
+                                                "AI_ANALYZED",
+                                                "MORE_INFORMATION_REQUIRED",
+                                                "APPROVED",
+                                                "REJECTED"
+                                            ].includes(
+                                                selectedClaim.status
+                                            )
+                                                ? "completed"
+                                                : ""
+                                        }`}
+                                    >
+                                        <div className="timeline-dot">
+                                            2
+                                        </div>
+
+                                        <div>
+                                            <strong>
+                                                Under Review
+                                            </strong>
+                                            <span>
+                                                Your claim is being reviewed.
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        className={`timeline-item ${
+                                            [
+                                                "APPROVED",
+                                                "REJECTED"
+                                            ].includes(
+                                                selectedClaim.status
+                                            )
+                                                ? "completed"
+                                                : ""
+                                        }`}
+                                    >
+                                        <div className="timeline-dot">
+                                            3
+                                        </div>
+
+                                        <div>
+                                            <strong>
+                                                Final Decision
+                                            </strong>
+                                            <span>
+                                                Claim approval or rejection.
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                </div>
                             </div>
 
                         </div>
 
-                        <div className="claims-table-wrapper">
+                        {/* DOCUMENTS */}
+                        <div className="documents-card">
 
-                            <table className="claims-table">
+                            <div className="documents-header">
+                                <div>
+                                    <h3>Claim Documents</h3>
+                                    <p>
+                                        Upload supporting documents for this claim.
+                                    </p>
+                                </div>
+                            </div>
 
-                                <thead>
-                                    <tr>
-                                        <th>Claim Number</th>
-                                        <th>Description</th>
-                                        <th>Amount</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
+                            <div className="upload-area">
 
-                                <tbody>
+                                <input
+                                    type="file"
+                                    id="claim-document"
+                                    onChange={(e) =>
+                                        setSelectedFile(
+                                            e.target.files[0]
+                                        )
+                                    }
+                                />
 
-                                    {claims.map((claim) => (
+                                <label htmlFor="claim-document">
+                                    {selectedFile
+                                        ? selectedFile.name
+                                        : "Choose a document"}
+                                </label>
 
-                                        <tr key={claim.id}>
+                                <button
+                                    onClick={uploadDocument}
+                                    disabled={
+                                        uploading ||
+                                        !selectedFile
+                                    }
+                                    className="primary-button"
+                                >
+                                    {uploading
+                                        ? "Uploading..."
+                                        : "Upload Document"}
+                                </button>
 
-                                            <td>
+                            </div>
+
+                            <div className="document-list">
+
+                                {documents.length === 0 ? (
+                                    <div className="empty-state">
+                                        No documents uploaded for this claim.
+                                    </div>
+                                ) : (
+                                    documents.map((document) => (
+                                        <div
+                                            className="document-item"
+                                            key={document.id}
+                                        >
+                                            <div className="document-icon">
+                                                DOC
+                                            </div>
+
+                                            <div>
                                                 <strong>
-                                                    {claim.claimNumber}
+                                                    {document.fileName ||
+                                                        document.originalFileName ||
+                                                        "Uploaded Document"}
                                                 </strong>
-                                            </td>
 
-                                            <td>
-                                                {claim.description}
-                                            </td>
-
-                                            <td>
-                                                ₹
-                                                {Number(
-                                                    claim.claimAmount
-                                                ).toLocaleString(
-                                                    "en-IN"
-                                                )}
-                                            </td>
-
-                                            <td>
-                                                <span
-                                                    className={`claim-status ${getStatusClass(
-                                                        claim.status
-                                                    )}`}
-                                                >
-                                                    {getStatusText(
-                                                        claim.status
-                                                    )}
+                                                <span>
+                                                    Document uploaded
+                                                    successfully
                                                 </span>
-                                            </td>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
 
-                                        </tr>
-
-                                    ))}
-
-                                </tbody>
-
-                            </table>
-
+                            </div>
                         </div>
 
                     </section>
                 )}
 
                 {/* SUPPORT */}
+                <section className="support-section" id="support">
 
-                <section
-                    className="support-section"
-                    id="support"
-                >
-
-                    <div className="support-content">
-
+                    <div>
                         <span className="section-label">
-                            CUSTOMER SUPPORT
+                            NEED HELP?
                         </span>
 
                         <h2>
@@ -892,53 +871,31 @@ function CustomerDashboard() {
                         </h2>
 
                         <p>
-                            Have a question about your policy or claim?
-                            Our support team is available to help.
+                            Contact our support team for assistance
+                            with your policy or claim.
                         </p>
-
-                        <div className="support-actions">
-
-                            <button>
-                                Contact Support
-                            </button>
-
-                            <button>
-                                Policy Assistance
-                            </button>
-
-                        </div>
-
                     </div>
 
-                    <div className="support-pattern"></div>
+                    <button className="support-button">
+                        Contact Support
+                    </button>
 
                 </section>
 
             </main>
 
             {/* FOOTER */}
-
-            <footer className="main-footer">
-
-                <div className="footer-container">
-
-                    <div>
-                        <strong>SecureLife</strong>
-                        <span>
-                            Insurance Services
-                        </span>
-                    </div>
-
-                    <p>
-                        Secure insurance. Simple service.
-                    </p>
-
+            <footer className="dashboard-footer">
+                <div>
+                    <strong>SecureLife</strong>
                     <span>
-                        © 2026 SecureLife Insurance Services
+                        Reliable insurance services for every stage of life.
                     </span>
-
                 </div>
 
+                <span>
+                    © 2026 SecureLife Insurance Services
+                </span>
             </footer>
 
         </div>
