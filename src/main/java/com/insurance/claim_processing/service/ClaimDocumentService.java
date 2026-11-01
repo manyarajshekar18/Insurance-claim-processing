@@ -2,10 +2,15 @@ package com.insurance.claim_processing.service;
 
 import com.insurance.claim_processing.entity.Claim;
 import com.insurance.claim_processing.entity.ClaimDocument;
+import com.insurance.claim_processing.entity.Role;
+import com.insurance.claim_processing.entity.User;
 import com.insurance.claim_processing.repository.ClaimDocumentRepository;
 import com.insurance.claim_processing.repository.ClaimRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -35,13 +40,21 @@ public class ClaimDocumentService {
 
     public ClaimDocument uploadDocument(
             Long claimId,
-            MultipartFile file) throws IOException {
+            MultipartFile file,
+            Authentication authentication) throws IOException {
 
         Claim claim = claimRepository.findById(claimId)
-                .orElseThrow(() -> new RuntimeException("Claim not found"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Claim not found"));
+
+        validateOwnership(claim, authentication);
 
         if (file.isEmpty()) {
-            throw new RuntimeException("File is empty");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "File is empty");
         }
 
         Files.createDirectories(uploadDirectory);
@@ -67,7 +80,38 @@ public class ClaimDocumentService {
         return documentRepository.save(document);
     }
 
-    public List<ClaimDocument> getDocumentsByClaim(Long claimId) {
+    public List<ClaimDocument> getDocumentsByClaim(
+            Long claimId,
+            Authentication authentication) {
+
+        Claim claim = claimRepository.findById(claimId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Claim not found"));
+
+        validateOwnership(claim, authentication);
+
         return documentRepository.findByClaimId(claimId);
+    }
+
+    private void validateOwnership(
+            Claim claim,
+            Authentication authentication) {
+
+        User user = (User) authentication.getPrincipal();
+
+        if (user.getRole() == Role.ADMIN ||
+                user.getRole() == Role.OFFICER) {
+            return;
+        }
+
+        if (claim.getPolicy().getUser().getId().equals(user.getId())) {
+            return;
+        }
+
+        throw new ResponseStatusException(
+                HttpStatus.FORBIDDEN,
+                "You are not authorized to access this claim");
     }
 }

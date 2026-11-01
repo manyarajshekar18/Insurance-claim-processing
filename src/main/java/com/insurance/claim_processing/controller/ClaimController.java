@@ -3,6 +3,7 @@ package com.insurance.claim_processing.controller;
 import com.insurance.claim_processing.entity.Claim;
 import com.insurance.claim_processing.service.ClaimService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -36,19 +37,27 @@ public class ClaimController {
 
     @GetMapping("/policy/{policyId}")
     public ResponseEntity<List<Claim>> getClaimsByPolicy(
-            @PathVariable Long policyId) {
+            @PathVariable Long policyId,
+            Authentication authentication) {
 
         return ResponseEntity.ok(
-                claimService.getClaimsByPolicy(policyId)
+                claimService.getClaimsByPolicy(
+                        policyId,
+                        authentication
+                )
         );
     }
 
     @GetMapping("/{claimId}")
     public ResponseEntity<Claim> getClaimById(
-            @PathVariable Long claimId) {
+            @PathVariable Long claimId,
+            Authentication authentication) {
 
         return ResponseEntity.ok(
-                claimService.getClaimById(claimId)
+                claimService.getClaimById(
+                        claimId,
+                        authentication
+                )
         );
     }
 }

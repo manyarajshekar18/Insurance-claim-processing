@@ -2,9 +2,14 @@ package com.insurance.claim_processing.service;
 
 import com.insurance.claim_processing.entity.Claim;
 import com.insurance.claim_processing.entity.Policy;
+import com.insurance.claim_processing.entity.Role;
+import com.insurance.claim_processing.entity.User;
 import com.insurance.claim_processing.repository.ClaimRepository;
 import com.insurance.claim_processing.repository.PolicyRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -30,7 +35,9 @@ public class ClaimService {
 
         Policy policy = policyRepository.findById(policyId)
                 .orElseThrow(() ->
-                        new RuntimeException("Policy not found"));
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Policy not found"));
 
         Claim claim = new Claim();
 
@@ -42,15 +49,53 @@ public class ClaimService {
         return claimRepository.save(claim);
     }
 
-    public List<Claim> getClaimsByPolicy(Long policyId) {
+    public List<Claim> getClaimsByPolicy(
+            Long policyId,
+            Authentication authentication) {
+
+        Policy policy = policyRepository.findById(policyId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Policy not found"));
+
+        validateOwnership(policy, authentication);
 
         return claimRepository.findByPolicyId(policyId);
     }
 
-    public Claim getClaimById(Long claimId) {
+    public Claim getClaimById(
+            Long claimId,
+            Authentication authentication) {
 
-        return claimRepository.findById(claimId)
+        Claim claim = claimRepository.findById(claimId)
                 .orElseThrow(() ->
-                        new RuntimeException("Claim not found"));
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Claim not found"));
+
+        validateOwnership(claim.getPolicy(), authentication);
+
+        return claim;
+    }
+
+    private void validateOwnership(
+            Policy policy,
+            Authentication authentication) {
+
+        User user = (User) authentication.getPrincipal();
+
+        if (user.getRole() == Role.ADMIN ||
+                user.getRole() == Role.OFFICER) {
+            return;
+        }
+
+        if (policy.getUser().getId().equals(user.getId())) {
+            return;
+        }
+
+        throw new ResponseStatusException(
+                HttpStatus.FORBIDDEN,
+                "You are not authorized to access this claim");
     }
 }
