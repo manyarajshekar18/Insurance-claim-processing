@@ -51,7 +51,6 @@ public class SecurityConfig {
         ));
 
         configuration.setAllowedHeaders(List.of("*"));
-
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source =
@@ -92,6 +91,13 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/api/admin/**"
                 ).hasRole("ADMIN")
+
+                .requestMatchers(
+                    "/api/officer/**"
+                ).hasAnyRole(
+                    "OFFICER",
+                    "ADMIN"
+                )
 
                 .requestMatchers(
                     HttpMethod.POST,
