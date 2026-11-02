@@ -2,33 +2,25 @@ import { useState } from "react";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import CustomerDashboard from "./pages/CustomerDashboard";
+import OfficerDashboard from "./pages/OfficerDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 
 function App() {
     const [page, setPage] = useState("login");
-    const [role, setRole] = useState(localStorage.getItem("role"));
+    const [role, setRole] = useState(
+        localStorage.getItem("role")
+    );
 
     if (role === "CUSTOMER") {
         return <CustomerDashboard />;
     }
 
-    if (role) {
-        return (
-            <div className="container mt-5">
-                <h2>Insurance Claim Dashboard</h2>
-                <p>Logged in as: {localStorage.getItem("email")}</p>
-                <p>Role: {role}</p>
+    if (role === "OFFICER") {
+        return <OfficerDashboard />;
+    }
 
-                <button
-                    className="btn btn-danger"
-                    onClick={() => {
-                        localStorage.clear();
-                        setRole(null);
-                    }}
-                >
-                    Logout
-                </button>
-            </div>
-        );
+    if (role === "ADMIN") {
+        return <AdminDashboard />;
     }
 
     return (
