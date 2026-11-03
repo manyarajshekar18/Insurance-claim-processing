@@ -21,7 +21,8 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+    public SecurityConfig(
+            JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
@@ -33,11 +34,14 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
 
-        CorsConfiguration configuration = new CorsConfiguration();
+        CorsConfiguration configuration =
+                new CorsConfiguration();
 
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:5173",
                 "http://localhost:5174",
+                "http://localhost:5175",
+                "http://localhost:5176",
                 "http://localhost:5177",
                 "http://localhost:5178"
         ));
@@ -51,12 +55,16 @@ public class SecurityConfig {
         ));
 
         configuration.setAllowedHeaders(List.of("*"));
+
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
 
-        source.registerCorsConfiguration("/**", configuration);
+        source.registerCorsConfiguration(
+                "/**",
+                configuration
+        );
 
         return source;
     }
@@ -67,31 +75,40 @@ public class SecurityConfig {
 
         http
             .cors(cors ->
-                cors.configurationSource(corsConfigurationSource())
+                cors.configurationSource(
+                    corsConfigurationSource()
+                )
             )
+
             .csrf(csrf ->
                 csrf.disable()
             )
+
             .sessionManagement(session ->
                 session.sessionCreationPolicy(
                     SessionCreationPolicy.STATELESS
                 )
             )
+
             .authorizeHttpRequests(auth -> auth
 
+                // Allow browser CORS preflight requests
                 .requestMatchers(
                     HttpMethod.OPTIONS,
                     "/**"
                 ).permitAll()
 
+                // Public authentication endpoints
                 .requestMatchers(
                     "/api/auth/**"
                 ).permitAll()
 
+                // Admin APIs
                 .requestMatchers(
                     "/api/admin/**"
                 ).hasRole("ADMIN")
 
+                // Officer APIs
                 .requestMatchers(
                     "/api/officer/**"
                 ).hasAnyRole(
@@ -99,15 +116,18 @@ public class SecurityConfig {
                     "ADMIN"
                 )
 
+                // Officer claim review
                 .requestMatchers(
                     HttpMethod.POST,
                     "/api/claims/*/review"
                 ).hasRole("OFFICER")
 
+                // Authenticated test APIs
                 .requestMatchers(
                     "/api/test/**"
                 ).authenticated()
 
+                // Claims
                 .requestMatchers(
                     "/api/claims/**"
                 ).hasAnyRole(
@@ -116,6 +136,7 @@ public class SecurityConfig {
                     "ADMIN"
                 )
 
+                // Policies
                 .requestMatchers(
                     "/api/policies/**"
                 ).hasAnyRole(
@@ -124,8 +145,10 @@ public class SecurityConfig {
                     "ADMIN"
                 )
 
+                // Everything else requires authentication
                 .anyRequest().authenticated()
             )
+
             .addFilterBefore(
                 jwtAuthenticationFilter,
                 UsernamePasswordAuthenticationFilter.class
